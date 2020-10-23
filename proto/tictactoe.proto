@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package proto;
+
+service TicTacToe {
+    rpc Game (stream Request) returns (stream Response) {}
+}
+
+message Request {
+    repeated int32 board = 1;
+    int32 draw = 2;
+}
+
+message Response {
+    repeated int32 board = 1;
+    enum State {
+        INVALID = 0;
+        CLIENT_WINS = 1;
+        SERVER_WINS = 2;
+        DRAWN = 3;
+        NOT_FINISHED = 4;
+    }
+    State state = 2;
+}
