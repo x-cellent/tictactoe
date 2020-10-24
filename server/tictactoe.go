@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"gitlab.com/kolls/networking/grpc/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/proto"
 )
 
 type Field = int32

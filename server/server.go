@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	"gitlab.com/kolls/networking/grpc/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"io"

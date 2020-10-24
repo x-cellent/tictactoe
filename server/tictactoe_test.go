@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/stretchr/testify/require"
-	"gitlab.com/kolls/networking/grpc/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/proto"
 	"testing"
 )
 

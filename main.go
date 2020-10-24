@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"gitlab.com/kolls/networking/grpc/client"
-	"gitlab.com/kolls/networking/grpc/server"
+	"github.com/x-cellent/tictactoe/client"
+	"github.com/x-cellent/tictactoe/server"
 	"sync"
 )
 

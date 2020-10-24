@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package proto;
 
+option go_package = "v1/proto";
+
 service TicTacToe {
     rpc Play (stream DrawRequest) returns (stream DrawResponse) {}
     rpc Result (Board) returns (ResultResponse) {}
