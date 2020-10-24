@@ -1,31 +1,36 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"gitlab.com/kolls/networking/grpc/proto"
-	"gitlab.com/kolls/networking/grpc/tictactoe"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"sync"
 	"time"
 )
 
-func Run() *bufconn.Listener {
+func Run(inMemory bool) net.Listener {
 	rand.Seed(time.Now().Unix())
 
-	// create in-memory listener
-	listener := bufconn.Listen(1024 * 1024)
-
-	// create gRPC server
 	s := grpc.NewServer()
-	proto.RegisterTicTacToeServer(s, &server{
-		board: new(tictactoe.Board),
-	})
+	proto.RegisterTicTacToeServer(s, &server{})
 
-	// and start...
+	var listener net.Listener
+	if inMemory {
+		listener = bufconn.Listen(1024 * 1024)
+	} else {
+		var err error
+		listener, err = net.Listen("tcp", ":50005")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	wg := new(sync.WaitGroup)
 	wg.Add(1)
 	go func() {
@@ -37,14 +42,12 @@ func Run() *bufconn.Listener {
 }
 
 type server struct {
-	board *tictactoe.Board
 }
 
-func (s server) Game(srv proto.TicTacToe_GameServer) error {
+func (s *server) Play(srv proto.TicTacToe_PlayServer) error {
 	ctx := srv.Context()
 
 	for {
-		// exit if context is done or continue
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -62,39 +65,57 @@ func (s server) Game(srv proto.TicTacToe_GameServer) error {
 		}
 		clientDraw := int(req.Draw)
 
-		resp := proto.Response{}
+		resp := proto.DrawResponse{}
 
-		// parse client board and check if client draw is valid
-		board, ok := tictactoe.Parse(req.Board)
-		if !ok || board.IsFinished() {
-			resp.State = proto.Response_INVALID
-		} else if !board.Draw(clientDraw, tictactoe.Client) {
-			resp.State = proto.Response_INVALID
-		} else if board.IsFinished() {
-			resp.State = proto.Response_State(board.GetWinner()) // may also be drawn
+		board, ok := parse(req.Board.Fields, true)
+		if !ok {
+			println("not ok")
+			resp.State = proto.DrawResponse_INVALID
+		} else if board.isFinished() {
+			println("already finished")
+			resp.State = board.getWinner()
+		} else if !board.draw(clientDraw, Client) {
+			resp.State = proto.DrawResponse_INVALID
+		} else if board.isFinished() {
+			resp.State = board.getWinner() // may also be drawn here
 		} else {
 			// make server draw
 			for {
 				serverDraw := rand.Intn(9)
-				if board.Draw(serverDraw, tictactoe.Server) {
+				if board.draw(serverDraw, Server) {
 					break
 				}
 			}
-			// update state
-			if board.IsFinished() {
-				resp.State = proto.Response_State(board.GetWinner()) // may also be drawn
+			if board.isFinished() {
+				resp.State = proto.DrawResponse_SERVER_WINS
 			} else {
-				resp.State = proto.Response_NOT_FINISHED
+				resp.State = proto.DrawResponse_NOT_FINISHED
 			}
 		}
 
-		if ok {
-			resp.Board = board[:]
+		if resp.State != proto.DrawResponse_INVALID {
+			resp.Board = &proto.Board{Fields: board[:]}
 		}
 
 		err = srv.Send(&resp)
 		if err != nil {
 			fmt.Printf("send error %v\n", err)
 		}
+	}
+}
+
+func (s *server) Result(ctx context.Context, board *proto.Board) (*proto.ResultResponse, error) {
+	resp := &proto.ResultResponse{}
+	b, ok := parse(board.Fields, false)
+	if !ok {
+		resp.Text = "invalid board"
+	} else {
+		resp.Text = b.getResult()
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		return resp, nil
 	}
 }

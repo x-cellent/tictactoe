@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"gitlab.com/kolls/networking/grpc/proto"
-	"gitlab.com/kolls/networking/grpc/tictactoe"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"io"
@@ -15,14 +14,22 @@ import (
 	"time"
 )
 
-func Run(clientID int, listener *bufconn.Listener) {
+func Connect(clientID int, listener net.Listener, inMemory bool) {
 	rand.Seed(time.Now().Unix())
 
 	// dial server
-	bufDialer := func(context.Context, string) (net.Conn, error) {
-		return listener.Dial()
+	var conn *grpc.ClientConn
+	var err error
+
+	if inMemory {
+		bufDialer := func(context.Context, string) (net.Conn, error) {
+			return listener.(*bufconn.Listener).Dial()
+		}
+		conn, err = grpc.Dial("bufnet", grpc.WithContextDialer(bufDialer), grpc.WithBlock(), grpc.WithInsecure())
+	} else {
+		conn, err = grpc.Dial(":50005", grpc.WithBlock(), grpc.WithInsecure())
 	}
-	conn, err := grpc.Dial("bufnet", grpc.WithContextDialer(bufDialer), grpc.WithBlock(), grpc.WithInsecure())
+
 	if err != nil {
 		panic(err)
 	}
@@ -30,23 +37,25 @@ func Run(clientID int, listener *bufconn.Listener) {
 
 	// create stream
 	client := proto.NewTicTacToeClient(conn)
-	stream, err := client.Game(context.Background())
+	stream, err := client.Play(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	ctx := stream.Context()
-	done := make(chan bool)
-
+	// play game...
 	boardMutex := new(sync.RWMutex)
-	board := new(tictactoe.Board)
+	keepDrawing := true
+	board := make([]int32, 9)
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
 
 	// first goroutine subsequently sends random numbers within [0,12), which eventually results in valid client draws
 	go func() {
-		for {
+		defer wg.Done()
+		for keepDrawing {
 			boardMutex.RLock()
-			req := proto.Request{
-				Board: board[:],
+			req := proto.DrawRequest{
+				Board: &proto.Board{Fields: board},
 				Draw:  int32(rand.Intn(12)),
 			}
 			boardMutex.RUnlock()
@@ -56,13 +65,7 @@ func Run(clientID int, listener *bufconn.Listener) {
 				panic(err)
 			}
 
-			boardMutex.RLock()
-			if board.IsFinished() {
-				boardMutex.RUnlock()
-				break
-			}
-			boardMutex.RUnlock()
-
+			// sleep some random time
 			d := time.Duration(rand.Intn(20) + 2)
 			time.Sleep(d * time.Millisecond)
 		}
@@ -73,9 +76,10 @@ func Run(clientID int, listener *bufconn.Listener) {
 		}
 	}()
 
-	// second goroutine receives server responses, which indicates either an invalid client draw or a valid board with state information
+	// second goroutine receives server responses, which indicates either an invalid client draw or the actual board including state information
 	go func() {
-		for {
+		defer wg.Done()
+		for keepDrawing {
 			resp, err := stream.Recv()
 			if err == io.EOF {
 				return
@@ -84,37 +88,24 @@ func Run(clientID int, listener *bufconn.Listener) {
 				panic(err)
 			}
 
-			if resp.State != proto.Response_INVALID {
+			if resp.State != proto.DrawResponse_INVALID {
+				keepDrawing = resp.State == proto.DrawResponse_NOT_FINISHED
 				boardMutex.Lock()
-				copy(board[:], resp.Board[:])
+				copy(board, resp.Board.Fields[:])
 				boardMutex.Unlock()
-			}
-
-			switch resp.State {
-			case proto.Response_CLIENT_WINS:
-				boardMutex.RLock()
-				if board.GetWinner() != 1 {
-					panic("winner mismatch, client (1) should have won")
-				}
-				boardMutex.RUnlock()
-			case proto.Response_SERVER_WINS:
-				boardMutex.RLock()
-				if board.GetWinner() != 2 {
-					panic("winner mismatch, server (2) should have won")
-				}
-				boardMutex.RUnlock()
 			}
 		}
 	}()
 
-	// third goroutine closes done channel if context is done
-	go func() {
-		<-ctx.Done()
-		close(done)
-	}()
+	wg.Wait()
 
-	<-done
-
-	fmt.Printf("Client %d finished game:\n", clientID)
-	board.PrintWinner()
+	result := fmt.Sprintf("Client %d finished game:\n", clientID)
+	boardMutex.RLock()
+	defer boardMutex.RUnlock()
+	resp, err := client.Result(context.Background(), &proto.Board{Fields: board})
+	if err != nil {
+		panic(err)
+	}
+	result += resp.Text
+	println(result)
 }

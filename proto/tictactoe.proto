@@ -3,22 +3,31 @@ syntax = "proto3";
 package proto;
 
 service TicTacToe {
-    rpc Game (stream Request) returns (stream Response) {}
+    rpc Play (stream DrawRequest) returns (stream DrawResponse) {}
+    rpc Result (Board) returns (ResultResponse) {}
 }
 
-message Request {
-    repeated int32 board = 1;
+message DrawRequest {
+    Board board = 1;
     int32 draw = 2;
 }
 
-message Response {
-    repeated int32 board = 1;
+message DrawResponse {
+    Board board = 1;
     enum State {
-        INVALID = 0;
+        DRAWN = 0;
         CLIENT_WINS = 1;
         SERVER_WINS = 2;
-        DRAWN = 3;
-        NOT_FINISHED = 4;
+        NOT_FINISHED = 3;
+        INVALID = 4;
     }
     State state = 2;
+}
+
+message Board {
+    repeated int32 fields = 1;
+}
+
+message ResultResponse {
+    string text = 1;
 }

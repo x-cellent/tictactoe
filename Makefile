@@ -1,8 +1,12 @@
 .DEFAULT_GOAL := run
 
 .PHONY: run
-run: build
+run: test
 	bin/tictactoe
+
+.PHONY: test
+test: build
+	go test ./...
 
 .PHONY: build
 build: gofmt protoc
@@ -16,4 +20,4 @@ gofmt:
 
 .PHONY: protoc
 protoc:
-	@protoc --go_out=plugins=grpc:. proto/*.proto || true
+	@protoc --go_out=plugins=grpc:. proto/*.proto
