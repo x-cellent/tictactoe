@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/x-cellent/tictactoe/pkg/v1/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/tictactoe"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"io"
@@ -36,7 +36,7 @@ func Connect(clientID int, listener net.Listener, inMemory bool) {
 	defer conn.Close()
 
 	// create stream
-	client := proto.NewTicTacToeClient(conn)
+	client := tictactoe.NewGameClient(conn)
 	stream, err := client.Play(context.Background())
 	if err != nil {
 		panic(err)
@@ -54,8 +54,8 @@ func Connect(clientID int, listener net.Listener, inMemory bool) {
 		defer wg.Done()
 		for keepDrawing {
 			boardMutex.RLock()
-			req := proto.DrawRequest{
-				Board: &proto.Board{Fields: board},
+			req := tictactoe.DrawRequest{
+				Board: &tictactoe.Board{Fields: board},
 				Draw:  int32(rand.Intn(12)),
 			}
 			boardMutex.RUnlock()
@@ -88,8 +88,8 @@ func Connect(clientID int, listener net.Listener, inMemory bool) {
 				panic(err)
 			}
 
-			if resp.State != proto.DrawResponse_INVALID {
-				keepDrawing = resp.State == proto.DrawResponse_NOT_FINISHED
+			if resp.State != tictactoe.DrawResponse_INVALID {
+				keepDrawing = resp.State == tictactoe.DrawResponse_NOT_FINISHED
 				boardMutex.Lock()
 				copy(board, resp.Board.Fields[:])
 				boardMutex.Unlock()
@@ -102,7 +102,7 @@ func Connect(clientID int, listener net.Listener, inMemory bool) {
 	result := fmt.Sprintf("Client %d finished game:\n", clientID)
 	boardMutex.RLock()
 	defer boardMutex.RUnlock()
-	resp, err := client.Result(context.Background(), &proto.Board{Fields: board})
+	resp, err := client.Result(context.Background(), &tictactoe.Board{Fields: board})
 	if err != nil {
 		panic(err)
 	}

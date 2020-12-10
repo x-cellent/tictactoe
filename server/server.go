@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/x-cellent/tictactoe/pkg/v1/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/tictactoe"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"io"
@@ -18,7 +18,7 @@ func Run(inMemory bool) net.Listener {
 	rand.Seed(time.Now().Unix())
 
 	s := grpc.NewServer()
-	proto.RegisterTicTacToeServer(s, &server{})
+	tictactoe.RegisterGameServer(s, &gameService{})
 
 	var listener net.Listener
 	if inMemory {
@@ -41,10 +41,11 @@ func Run(inMemory bool) net.Listener {
 	return listener
 }
 
-type server struct {
+type gameService struct {
+	tictactoe.UnimplementedGameServer
 }
 
-func (s *server) Play(srv proto.TicTacToe_PlayServer) error {
+func (*gameService) Play(srv tictactoe.Game_PlayServer) error {
 	ctx := srv.Context()
 
 	for {
@@ -65,17 +66,17 @@ func (s *server) Play(srv proto.TicTacToe_PlayServer) error {
 		}
 		clientDraw := int(req.Draw)
 
-		resp := proto.DrawResponse{}
+		resp := tictactoe.DrawResponse{}
 
 		board, ok := parse(req.Board.Fields, true)
 		if !ok {
 			println("not ok")
-			resp.State = proto.DrawResponse_INVALID
+			resp.State = tictactoe.DrawResponse_INVALID
 		} else if board.isFinished() {
 			println("already finished")
 			resp.State = board.getWinner()
 		} else if !board.draw(clientDraw, Client) {
-			resp.State = proto.DrawResponse_INVALID
+			resp.State = tictactoe.DrawResponse_INVALID
 		} else if board.isFinished() {
 			resp.State = board.getWinner() // may also be drawn here
 		} else {
@@ -87,14 +88,14 @@ func (s *server) Play(srv proto.TicTacToe_PlayServer) error {
 				}
 			}
 			if board.isFinished() {
-				resp.State = proto.DrawResponse_SERVER_WINS
+				resp.State = tictactoe.DrawResponse_SERVER_WINS
 			} else {
-				resp.State = proto.DrawResponse_NOT_FINISHED
+				resp.State = tictactoe.DrawResponse_NOT_FINISHED
 			}
 		}
 
-		if resp.State != proto.DrawResponse_INVALID {
-			resp.Board = &proto.Board{Fields: board[:]}
+		if resp.State != tictactoe.DrawResponse_INVALID {
+			resp.Board = &tictactoe.Board{Fields: board[:]}
 		}
 
 		err = srv.Send(&resp)
@@ -104,8 +105,8 @@ func (s *server) Play(srv proto.TicTacToe_PlayServer) error {
 	}
 }
 
-func (s *server) Result(ctx context.Context, board *proto.Board) (*proto.ResultResponse, error) {
-	resp := &proto.ResultResponse{}
+func (*gameService) Result(ctx context.Context, board *tictactoe.Board) (*tictactoe.ResultResponse, error) {
+	resp := &tictactoe.ResultResponse{}
 	b, ok := parse(board.Fields, false)
 	if !ok {
 		resp.Text = "invalid board"

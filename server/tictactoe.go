@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"github.com/x-cellent/tictactoe/pkg/v1/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/tictactoe"
 )
 
 type Field = int32
@@ -53,17 +53,17 @@ func (b *board) draw(index int, field Field) bool {
 
 func (b *board) isFinished() bool {
 	w := b.getWinner()
-	return w == proto.DrawResponse_DRAWN || w == proto.DrawResponse_SERVER_WINS || w == proto.DrawResponse_CLIENT_WINS
+	return w == tictactoe.DrawResponse_DRAWN || w == tictactoe.DrawResponse_SERVER_WINS || w == tictactoe.DrawResponse_CLIENT_WINS
 }
 
 func (b *board) getResult() string {
 	r := fmt.Sprintf("%d %d %d\n%d %d %d\n%d %d %d\n", b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8])
 	switch b.getWinner() {
-	case proto.DrawResponse_CLIENT_WINS:
+	case tictactoe.DrawResponse_CLIENT_WINS:
 		r += "Client wins"
-	case proto.DrawResponse_SERVER_WINS:
+	case tictactoe.DrawResponse_SERVER_WINS:
 		r += "Server wins"
-	case proto.DrawResponse_DRAWN:
+	case tictactoe.DrawResponse_DRAWN:
 		r += "Drawn"
 	default:
 		r += "Game has not been decided yet"
@@ -99,22 +99,22 @@ func (b *board) isDrawValid(index int, field Field) bool {
 	return true
 }
 
-func (b *board) getWinner() proto.DrawResponse_State {
+func (b *board) getWinner() tictactoe.DrawResponse_State {
 	// diagonals
 	s := b[0] + b[4] + b[8]
 	if s == 3 && b[0] == 1 && b[4] == 1 {
-		return proto.DrawResponse_CLIENT_WINS
+		return tictactoe.DrawResponse_CLIENT_WINS
 	} else if s == 6 {
-		return proto.DrawResponse_SERVER_WINS
+		return tictactoe.DrawResponse_SERVER_WINS
 	}
 
 	// rows
 	for i := 0; i < 9; i += 3 {
 		s = b[i] + b[i+1] + b[i+2]
 		if s == 3 && b[i] == 1 && b[i+1] == 1 {
-			return proto.DrawResponse_CLIENT_WINS
+			return tictactoe.DrawResponse_CLIENT_WINS
 		} else if s == 6 {
-			return proto.DrawResponse_SERVER_WINS
+			return tictactoe.DrawResponse_SERVER_WINS
 		}
 	}
 
@@ -122,17 +122,17 @@ func (b *board) getWinner() proto.DrawResponse_State {
 	for i := 0; i < 3; i++ {
 		s = b[i] + b[i+3] + b[i+6]
 		if s == 3 && b[i] == 1 && b[i+3] == 1 {
-			return proto.DrawResponse_CLIENT_WINS
+			return tictactoe.DrawResponse_CLIENT_WINS
 		} else if s == 6 {
-			return proto.DrawResponse_SERVER_WINS
+			return tictactoe.DrawResponse_SERVER_WINS
 		}
 	}
 
 	for _, f := range b {
 		if f == Free {
-			return proto.DrawResponse_NOT_FINISHED
+			return tictactoe.DrawResponse_NOT_FINISHED
 		}
 	}
 
-	return proto.DrawResponse_DRAWN
+	return tictactoe.DrawResponse_DRAWN
 }

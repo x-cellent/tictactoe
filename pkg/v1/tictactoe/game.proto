@@ -1,10 +1,11 @@
+// pkg/v1/tictactoe/game.proto
 syntax = "proto3";
 
-package proto;
+package tictactoe;
 
-option go_package = "v1/proto";
+option go_package = "v1/tictactoe";
 
-service TicTacToe {
+service Game {
     rpc Play (stream DrawRequest) returns (stream DrawResponse) {}
     rpc Result (Board) returns (ResultResponse) {}
 }

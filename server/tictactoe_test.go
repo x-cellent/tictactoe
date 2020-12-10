@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/stretchr/testify/require"
-	"github.com/x-cellent/tictactoe/pkg/v1/proto"
+	"github.com/x-cellent/tictactoe/pkg/v1/tictactoe"
 	"testing"
 )
 
@@ -39,5 +39,5 @@ func TestBoard(t *testing.T) {
 	require.False(t, b.isFinished())
 
 	require.True(t, b.draw(5, 1))
-	require.Equal(t, proto.DrawResponse_DRAWN, b.getWinner())
+	require.Equal(t, tictactoe.DrawResponse_DRAWN, b.getWinner())
 }
